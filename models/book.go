@@ -11,4 +11,5 @@ type Book struct {
 	Author      string    `gorm:"not null"`
 	Description string    `gorm:"size:255"`
 	Date        time.Time `gorm:"default:null"`
+	Chapters    []Chapter `gorm:"foreignkey:BookID"`
 }

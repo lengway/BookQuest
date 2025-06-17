@@ -18,14 +18,6 @@ func main() {
 
 	database.ConnectDB()
 
-	//app.Get("/", func(c *fiber.Ctx) error {
-	//	return c.SendString("BookBattle API работает!")
-	//})
-	//
-	//app.Post("/register", handlers.CreateUser)
-	//app.Post("/login", handlers.Login)
-	//app.Get("/me", middleware.Protected(), handlers.GetMe)
-
 	router.SetupRoutes(app)
 	// Запуск сервера
 	log.Fatal(app.Listen(":3000"))
