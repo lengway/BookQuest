@@ -1,8 +1,27 @@
-# Default ignored files
-/shelf/
-/workspace.xml
-# Editor-based HTTP Client requests
-/httpRequests/
-# Datasource local storage ignored files
-/dataSources/
-/dataSources.local.xml
+# Go build artifacts
+*.exe
+*.out
+*.test
+
+# Build folders
+bin/
+build/
+dist/
+
+# Dependency folder (если используешь `go mod vendor`)
+vendor/
+
+# Logs
+*.log
+
+# Env files
+.env
+.env.*
+
+# IDE configs (дополнительно к GoLand)
+.vscode/
+.idea/
+
+# Mac/Windows system files
+.DS_Store
+Thumbs.db
