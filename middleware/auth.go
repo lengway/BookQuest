@@ -12,7 +12,7 @@ import (
 // Protected protect routes
 func Protected() fiber.Handler {
 	return jwtware.New(jwtware.Config{
-		SigningKey:   jwtware.SigningKey{Key: []byte(config.Config("SECRET"))},
+		SigningKey:   jwtware.SigningKey{Key: []byte(config.AppConfig.JWTSecret)}, // Changed to AppConfig
 		ErrorHandler: jwtError})
 }
 
@@ -53,6 +53,44 @@ func IsOwnerOrAdmin() fiber.Handler {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"status":  "error",
 			"message": "Access denied: not the owner or admin",
+		})
+	}
+}
+
+// IsAdmin checks if the user role is 'admin'
+func IsAdmin() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		user, ok := c.Locals("user").(*jwt.Token)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"status":  "error",
+				"message": "User not authenticated or token is invalid",
+			})
+		}
+
+		claims, ok := user.Claims.(jwt.MapClaims)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Invalid token claims",
+			})
+		}
+
+		role, ok := claims["role"].(string)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Role not found in token or is of invalid type",
+			})
+		}
+
+		if role == "admin" {
+			return c.Next()
+		}
+
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Access denied: admin privileges required",
 		})
 	}
 }

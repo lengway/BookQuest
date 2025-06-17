@@ -1,17 +1,15 @@
 package database
 
 import (
+	"Backend/config"
 	"Backend/models"
 	"github.com/gofiber/fiber/v2/log"
-	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"os"
 )
 
 func ConnectDB() {
-	_ = godotenv.Load()
-	dsn := os.Getenv("DB_DSN")
+	dsn := config.AppConfig.DBSource
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Ошибка подключения к базе:", err)
@@ -19,14 +17,38 @@ func ConnectDB() {
 
 	DB = db
 
-	AMerr := db.AutoMigrate(&models.User{})
-	if AMerr != nil {
-		log.Fatal("User AutoMigrate error: ", AMerr.Error())
+	err = db.AutoMigrate(&models.User{})
+	if err != nil {
+		log.Fatal("User AutoMigrate error: ", err.Error())
 	}
 
-	AMerr = db.AutoMigrate(&models.Book{})
-	if AMerr != nil {
-		log.Fatal("Book AutoMigrate error: ", AMerr.Error())
+	err = db.AutoMigrate(&models.Book{})
+	if err != nil {
+		log.Fatal("Book AutoMigrate error: ", err.Error())
 	}
 
+	err = db.AutoMigrate(&models.Chapter{})
+	if err != nil {
+		log.Fatal("Chapter AutoMigrate error: ", err.Error())
+	}
+
+	err = db.AutoMigrate(&models.Question{})
+	if err != nil {
+		log.Fatal("Question AutoMigrate error: ", err.Error())
+	}
+
+	err = db.AutoMigrate(&models.Quiz{})
+	if err != nil {
+		log.Fatal("Quiz AutoMigrate error: ", err.Error())
+	}
+
+	err = db.AutoMigrate(&models.UserProgress{})
+	if err != nil {
+		log.Fatal("UserProgress AutoMigrate error: ", err.Error())
+	}
+
+	err = db.AutoMigrate(&models.RefreshToken{})
+	if err != nil {
+		log.Fatal("RefreshToken AutoMigrate error: ", err.Error())
+	}
 }

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 	"time"
 )
@@ -28,55 +27,69 @@ func CreateBook(c *fiber.Ctx) error {
 		Title       string    `json:"title" validate:"required,max=255"`
 		Author      string    `json:"author" validate:"required,max=255"`
 		Description string    `json:"description" validate:"max=255"`
-		Date        time.Time `json:"date" validate:"date"`
+		Date        time.Time `json:"date"` // Removed validate:"date"
 	}
 
 	db := database.DB
-	book := new(models.Book)
-	if err := c.BodyParser(book); err != nil {
+	input := new(NewBook) // Parse into DTO
+
+	if err := c.BodyParser(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",
-			"message": "Пересмотри инпут",
+			"message": "Error parsing request body", // Clearer message
 			"errors":  err.Error()})
 	}
 
 	validate := validator.New()
-	if err := validate.Struct(book); err != nil {
+	if err := validate.Struct(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",
-			"message": "Invalid request body",
+			"message": "Validation failed", // Clearer message
 			"errors":  err.Error()})
 	}
 
-	if existingBook, err := IsBookAlreadyExists(book); err != nil {
+	// Create models.Book instance from DTO
+	bookToCreate := &models.Book{
+		Title:       input.Title,
+		Author:      input.Author,
+		Description: input.Description,
+		Date:        input.Date,
+		// UserID will be set if/when authentication is added and book creation is tied to a user
+	}
+
+	if existingBook, err := IsBookAlreadyExists(bookToCreate); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error", // Added status
 			"message": "Error while checking book existence",
 			"errors":  err.Error(),
 		})
 	} else if existingBook != nil {
-		return c.Status(fiber.StatusNotAcceptable).JSON(fiber.Map{
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{ // Changed status to 409
+			"status":  "error", // Added status
 			"message": "Book already exists",
 			"errors":  "A book with the same title and author already exists",
 		})
 	}
 
-	if err := db.Create(&book).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{
+	if err := db.Create(&bookToCreate).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{ // Changed status to 500
 			"status":  "error",
 			"message": "Couldn't create book",
 			"errors":  err.Error()})
 	}
 
-	newBook := NewBook{
-		Author:      book.Author,
-		Title:       book.Title,
-		Description: book.Description,
-		Date:        book.Date}
+	// Return the DTO in response
+	responseBook := NewBook{
+		Author:      bookToCreate.Author,
+		Title:       bookToCreate.Title,
+		Description: bookToCreate.Description,
+		Date:        bookToCreate.Date,
+	}
 
-	return c.JSON(fiber.Map{
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{ // Changed status to 201
 		"status":  "success",
-		"message": "Created book",
-		"data":    newBook})
+		"message": "Book created successfully", // Clearer message
+		"data":    responseBook})
 }
 
 func GetAllBooks(c *fiber.Ctx) error {
@@ -112,16 +125,17 @@ func GetBookById(c *fiber.Ctx) error {
 }
 
 func DeleteBook(c *fiber.Ctx) error {
-	user := c.Locals("user").(*jwt.Token)
-	claims := user.Claims.(jwt.MapClaims)
-	userRole := claims["role"].(string)
-
-	if userRole != "admin" {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Only admins can delete books",
-		})
-	}
+	// The IsAdmin middleware now handles the role check.
+	// user := c.Locals("user").(*jwt.Token) // No longer needed if only role was used
+	// claims := user.Claims.(jwt.MapClaims) // No longer needed
+	// userRole := claims["role"].(string) // No longer needed
+	//
+	// if userRole != "admin" { // This check is now handled by IsAdmin middleware
+	// return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+	// "status": "error",
+	// "message": "Only admins can delete books",
+	// })
+	// }
 
 	id := c.Params("id")
 	db := database.DB

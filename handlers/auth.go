@@ -54,7 +54,7 @@ func generateAccessToken(user *models.User) (string, error) {
 	claims["exp"] = time.Now().Add(time.Minute * 30).Unix()
 	claims["iat"] = time.Now().Unix()
 
-	return token.SignedString([]byte(config.Config("SECRET")))
+	return token.SignedString([]byte(config.AppConfig.JWTSecret)) // Changed to AppConfig
 }
 
 func generateRefreshToken(user *models.User) (string, error) {
@@ -63,7 +63,7 @@ func generateRefreshToken(user *models.User) (string, error) {
 	claims["user_id"] = user.ID
 	claims["exp"] = time.Now().Add(time.Hour * 24 * 7).Unix()
 
-	return token.SignedString([]byte(config.Config("REFRESH_SECRET")))
+	return token.SignedString([]byte(config.AppConfig.JWTRefreshSecret)) // Changed to AppConfig
 }
 
 // ==================== LOGIN HANDLER =======================
@@ -142,7 +142,11 @@ func Refresh(c *fiber.Ctx) error {
 	}
 
 	token, err := jwt.Parse(input.RefreshToken, func(t *jwt.Token) (interface{}, error) {
-		return []byte(config.Config("REFRESH_SECRET")), nil
+		// Ensure the token method is what you expect (e.g. HS256)
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return []byte(config.AppConfig.JWTRefreshSecret), nil // Changed to AppConfig
 	})
 	if err != nil || !token.Valid {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid refresh token"})

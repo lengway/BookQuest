@@ -4,6 +4,7 @@ import "gorm.io/gorm"
 
 type Chapter struct {
 	gorm.Model
-	Title  string
-	BookID uint
+	Title   string
+	BookID  uint
+	Content string
 }

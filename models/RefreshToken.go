@@ -9,5 +9,5 @@ type RefreshToken struct {
 	gorm.Model
 	UserID    uint
 	Token     string `gorm:"unique"`
-	expiresAt time.Time
+	ExpiresAt time.Time
 }

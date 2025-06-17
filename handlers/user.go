@@ -3,13 +3,13 @@ package handlers
 import (
 	"Backend/database"
 	"Backend/models"
+	"errors"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
-	"strconv"
-
-	//"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
+	"strconv"
 )
 
 func validToken(t *jwt.Token, id string) bool {
@@ -68,16 +68,25 @@ func GetUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	db := database.DB
 	var user models.User
-	db.Find(&user, id)
-	if user.Username == "" {
-		return c.Status(404).JSON(fiber.Map{
+
+	if err := db.First(&user, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"status":  "error",
+				"message": "User not found with ID: " + id,
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"status":  "error",
-			"message": "No user found with ID",
-			"data":    nil})
+			"message": "Database error while fetching user",
+			"errors":  err.Error(),
+		})
 	}
+
 	return c.JSON(fiber.Map{
-		"status": "success", "message": "User found",
-		"data": user})
+		"status":  "success",
+		"message": "User found",
+		"data":    user})
 }
 
 func CreateUser(c *fiber.Ctx) error {
@@ -88,66 +97,77 @@ func CreateUser(c *fiber.Ctx) error {
 	}
 
 	db := database.DB
-	user := new(models.User)
-	if err := c.BodyParser(user); err != nil {
-		return c.Status(500).JSON(fiber.Map{
+	input := new(NewUser) // Parse into DTO
+
+	if err := c.BodyParser(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{ // Changed status to 400
 			"status":  "error",
-			"message": "Пересмотри инпут",
+			"message": "Error parsing request body", // Clearer message
 			"errors":  err.Error()})
 	}
 
 	validate := validator.New()
-	if err := validate.Struct(user); err != nil {
+	if err := validate.Struct(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Invalid request body",
+			"status":  "error",             // Added status
+			"message": "Validation failed", // Clearer message
 			"errors":  err.Error()})
 	}
 
-	if len(user.Password) > 72 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Invalid request body",
-			"errors":  "Password too long"})
-	}
+	// Password length check is implicitly handled by validate:"min=8" and bcrypt's limit.
+	// Explicit check for > 72 might still be useful if bcrypt had a lower internal limit than validator's max.
+	// For now, relying on bcrypt's error handling during hashPassword if it's too long.
 
-	if existingUser, _ := getUserByEmail(user.Email); existingUser != nil {
-		return c.Status(fiber.StatusNotAcceptable).JSON(fiber.Map{
-			"message": "Invalid request body",
-			"errors":  "Email already exists",
+	if existingUser, _ := getUserByEmail(input.Email); existingUser != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{ // Changed status to 409
+			"status":  "error", // Added status
+			"message": "Email already exists",
+			"errors":  "A user with this email already exists",
 		})
 	}
 
-	if existingUser, _ := getUserByUsername(user.Email); existingUser != nil {
-		return c.Status(fiber.StatusNotAcceptable).JSON(fiber.Map{
-			"message": "Invalid request body",
-			"errors":  "Username already exists",
+	// getUserByUsername was checking input.Email, should be input.Username
+	if existingUser, _ := getUserByUsername(input.Username); existingUser != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{ // Changed status to 409
+			"status":  "error", // Added status
+			"message": "Username already exists",
+			"errors":  "A user with this username already exists",
 		})
 	}
 
-	hash, err := hashPassword(user.Password)
+	hash, err := hashPassword(input.Password)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
+		// This could happen if password is too long for bcrypt (e.g., > 72 bytes)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"status":  "error",
 			"message": "Couldn't hash password",
 			"errors":  err.Error()})
 	}
 
-	user.Password = hash
+	user := &models.User{
+		Username: input.Username,
+		Email:    input.Email,
+		Password: hash,
+		// Role will be its zero value (e.g., empty string or specific default if set in model)
+	}
+
 	if err := db.Create(&user).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{ // Changed status to 500
 			"status":  "error",
 			"message": "Couldn't create user",
 			"errors":  err.Error()})
 	}
 
-	newUser := NewUser{
+	// Return DTO without password
+	responseUser := NewUser{
 		Email:    user.Email,
 		Username: user.Username,
 	}
 
-	return c.JSON(fiber.Map{
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{ // Changed status to 201
 		"status":  "success",
-		"message": "Created user",
-		"data":    newUser})
+		"message": "User created successfully", // Clearer message
+		"data":    responseUser})
 }
 
 func UpdateUser(c *fiber.Ctx) error {
@@ -174,9 +194,28 @@ func UpdateUser(c *fiber.Ctx) error {
 	db := database.DB
 	var user models.User
 
-	db.First(&user, id)
+	if err := db.First(&user, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"status":  "error",
+				"message": "User not found with ID: " + id,
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Database error while fetching user for update",
+			"errors":  err.Error(),
+		})
+	}
+
 	user.Names = uui.Names
-	db.Save(&user)
+	if err := db.Save(&user).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to update user",
+			"errors":  err.Error(),
+		})
+	}
 
 	return c.JSON(fiber.Map{
 		"status":  "success",
@@ -215,9 +254,28 @@ func DeleteUser(c *fiber.Ctx) error {
 	db := database.DB
 	var user models.User
 
-	db.First(&user, id)
+	if err := db.First(&user, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"status":  "error",
+				"message": "User not found with ID: " + id,
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Database error while fetching user for deletion",
+			"errors":  err.Error(),
+		})
+	}
 
-	db.Delete(&user)
+	if err := db.Delete(&user).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to delete user",
+			"errors":  err.Error(),
+		})
+	}
+
 	return c.JSON(fiber.Map{
 		"status":  "success",
 		"message": "User successfully deleted",
