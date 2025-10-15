@@ -33,6 +33,13 @@ from .quiz import (
     QuestionResult,
 )
 
+from .reading_progress import (
+    ReadingProgressCreate,
+    ReadingProgressUpdate,
+    ReadingProgress,
+    ReadingProgressWithBook
+)
+
 __all__ = [
     "UserCreate",
     "UserLogin", 
@@ -59,4 +66,8 @@ __all__ = [
     "QuizSubmission",
     "QuizResult",
     "QuestionResult",
+    "ReadingProgressCreate",
+    "ReadingProgressUpdate",
+    "ReadingProgress",
+    "ReadingProgressWithBook"
 ]

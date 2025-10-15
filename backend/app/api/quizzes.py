@@ -17,6 +17,7 @@ from ..schemas import (
 )
 from ..services.grading import grade_question
 from ..services.xp import compute_quiz_xp, apply_quiz_result
+from datetime import datetime
 
 
 router = APIRouter()
@@ -239,6 +240,30 @@ def submit_quiz(
 
     # Применяем результат пользователю
     apply_quiz_result(db, user, quiz, is_perfect, xp_earned)
+
+    # Update reading progress
+    from ..models import ReadingProgress as ProgressModel
+    progress = db.query(ProgressModel).filter(
+        ProgressModel.user_id == user.id,
+        ProgressModel.book_id == quiz.chapter.book_id
+    ).first()
+
+    if progress and is_perfect:
+        # Move to next chapter if quiz passed
+        if quiz.chapter.chapter_number > progress.chapters_completed:
+            progress.chapters_completed = quiz.chapter.chapter_number
+            progress.current_chapter = min(
+                quiz.chapter.chapter_number + 1,
+                quiz.chapter.book.total_chapters
+            )
+        
+        # Check if book completed
+        if progress.chapters_completed >= quiz.chapter.book.total_chapters:
+            progress.status = "completed"
+            progress.completed_at = datetime.utcnow()
+        
+        progress.last_read_at = datetime.utcnow()
+        db.add(progress)
 
     # Сохраняем попытку
     from ..models import QuizAttempt, Answer

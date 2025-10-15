@@ -14,4 +14,6 @@ __all__ = [
     "QuizAttempt",
     "Answer",
     "QuestionType",
+    "ReadingProgress",
+    "ReadingProgressStatus"
 ]
