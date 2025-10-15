@@ -22,6 +22,8 @@ class UserUpdate(BaseModel):
     username: Optional[str] = Field(default=None, min_length=3, max_length=50)
     password: Optional[str] = Field(default=None, min_length=6, max_length=100)
     is_active: Optional[bool] = None
+    is_superuser: Optional[bool] = None
+    is_superuser: Optional[bool] = None
 
 # Schema for response (what we return to client)
 class UserResponse(UserBase):

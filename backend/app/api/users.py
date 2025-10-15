@@ -30,7 +30,7 @@ def update_user(
     user_id: int,
     user_in: UserUpdate,
     db: Session = Depends(get_db),
-    _=Depends(get_current_active_user),
+    current=Depends(get_current_active_user),
 ):
     user = db.query(UserModel).filter(UserModel.id == user_id).first()
     if not user:
@@ -48,6 +48,10 @@ def update_user(
         exists = db.query(UserModel).filter(UserModel.username == update_data["username"], UserModel.id != user_id).first()
         if exists:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already taken")
+
+    # only superuser can toggle is_superuser
+    if "is_superuser" in update_data and not current.is_superuser:
+        update_data.pop("is_superuser")
 
     # hash password if provided
     if "password" in update_data and update_data["password"]:
