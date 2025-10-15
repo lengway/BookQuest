@@ -23,7 +23,6 @@ class UserUpdate(BaseModel):
     password: Optional[str] = Field(default=None, min_length=6, max_length=100)
     is_active: Optional[bool] = None
     is_superuser: Optional[bool] = None
-    is_superuser: Optional[bool] = None
 
 # Schema for response (what we return to client)
 class UserResponse(UserBase):
@@ -34,6 +33,7 @@ class UserResponse(UserBase):
     reading_streak: int
     created_at: datetime
     is_active: bool
+    is_superuser: bool
     
     class Config:
         from_attributes = True
