@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { api } from "../../api/axios";
 
 type Option = { id: number; text: string; is_correct?: boolean; order_index?: number; match_key?: string };
@@ -36,6 +36,7 @@ export default function QuizBuilder() {
   if (!quiz) return <div>Loading...</div>;
   return (
     <div>
+      <Link to="/">Home</Link>
       <h2>Quiz for chapter {quiz.chapter_id}</h2>
       <button onClick={() => addQuestion("single_choice")}>+ Single</button>
       <button onClick={() => addQuestion("multi_choice")}>+ Multi</button>

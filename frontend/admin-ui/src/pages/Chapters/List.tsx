@@ -43,6 +43,7 @@ export default function ChaptersList() {
                 {items.map((c) => (
                     <li key={c.id}>
                         <span>Book {c.book_id} · #{c.chapter_number} — {c.title}</span>
+                        <Link to={`/chapters/${c.id}`}>Edit</Link>
                     </li>
                 ))}
             </ul>

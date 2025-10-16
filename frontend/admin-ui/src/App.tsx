@@ -11,6 +11,7 @@ import QuizBuilder from "./pages/Quizzes/QuizBuilder";
 import QuizzesList from "./pages/Quizzes/List";
 import QuestionEdit from "./pages/Quizzes/QuestionEdit";
 import Home from "./pages/Home";
+import ChapterEdit from "./pages/Chapters/Edit";
 
 export default function App() {
   return (
@@ -87,6 +88,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <QuizBuilder />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chapters/:id"
+            element={
+              <ProtectedRoute>
+                <ChapterEdit />
               </ProtectedRoute>
             }
           />
